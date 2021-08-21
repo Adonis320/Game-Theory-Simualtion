@@ -20,6 +20,7 @@ public class Node {
     public double monitor_probability = 0;
     public boolean detected = false;
     public boolean ran_out_of_power = false;
+    public int [] neighbours;
 
     public Node(int id, double p, double phi, double c_a, double  c_m, double g_a, double alpha, double beta, String type){
         this.id = id;
@@ -33,6 +34,10 @@ public class Node {
         this.beta = beta;
         this.p_threshold = (g_a - c_a)/(2*alpha*g_a);
         this.phi_threshold = (beta*g_a + c_m)/(g_a*(2*alpha+beta));
+        Random rand = new Random();
+        int int_random= rand.nextInt(10)+1; //1 and 10 neighbours
+        //int int_random= rand.nextInt(40)+20;
+        this.neighbours = new int [int_random];
     }
 
     public Node (Node node){
@@ -50,6 +55,7 @@ public class Node {
         this.energy_level = node.energy_level;
         this.max_energy_level = node.max_energy_level;
         this.detected = node.detected;
+        this.neighbours = node.neighbours;
     }
 
     public void play(String role){

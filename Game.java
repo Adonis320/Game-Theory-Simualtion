@@ -6,7 +6,7 @@ import java.io.*;
 
 public class Game {
 
-    public double p = 0.1; // proportion of IDN
+    public double p = 0.4; // proportion of IDN
     public double phi = 0.2; // proportion of Malicious nodes
     public double c_a = 1; // cost of action attack
     public double c_m = 1; // cost of action monitor
@@ -32,17 +32,19 @@ public class Game {
         
         final_stats.add(new String[] {"Turns","Number of detected malicious nodes", "Number of false detections", "Total monitoring costs"});
 
-        for(int i = 0; i < 100; i++){
+       // for(int i = 0; i < 100; i++){
             nodes = initialize_game();
+            setup_neighbours();
+            System.out.println(get_number_without_idn());
 
             game_history = new Node [max_turns][nodes_number];
 
             play_game();
 
-            history_of_stats[i] = get_Stats();
-        }
+         //   history_of_stats[i] = get_Stats();
+    //    }
 
-
+        /*
         for(int i = 0; i < history_of_stats[0].size(); i++){
             int number_detected = 0;
             int number_false_detected = 0;
@@ -54,15 +56,38 @@ public class Game {
             }
             final_stats.add(new String [] {String.valueOf(i+1),String.valueOf(number_detected/100),String.valueOf(number_false_detected/100), String.valueOf(total_monitoring_costs/100)});
         }
-
+        
         try {
             givenDataArray_whenConvertToCSV_thenOutputCreated(final_stats);
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
-        }
-        
+        }*/
+       /* try {
+            givenDataArray_whenConvertToCSV_thenOutputCreated(final_stats);
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }*/
 
+    }
+
+    public int get_number_without_idn(){
+        int number = 0;
+        for(int i = 0; i < nodes.length; i++){
+            if(nodes[i].type.equals("Malicious")){
+                int number_idn = 0;
+                for(int j = 0; j < nodes[i].neighbours.length; j++){
+                    if(nodes[nodes[i].neighbours[j]].type.equals("IDN")){
+                        number_idn++;
+                    }
+                }
+                if(number_idn == 0){
+                    number ++;
+                }
+            }
+        }
+        return number;
     }
 
     public void play_game(){
@@ -79,7 +104,21 @@ public class Game {
 
         }
 
-       // get_Stats();
+        get_Stats();
+    }
+
+    public boolean has_valid_neighbours(int id){
+        boolean valid = false;
+
+        Node node = nodes[id];
+
+        for(int i = 0; i < node.neighbours.length; i++){
+            if(!nodes[node.neighbours[i]].ran_out_of_power & !nodes[node.neighbours[i]].type.equals("Malicious") ){//& !nodes[node.neighbours[i]].detected){
+                valid = true;
+            }
+        }
+
+        return valid;
     }
 
     public Node [] initialize_game(){
@@ -104,8 +143,7 @@ public class Game {
             Node normal = new Node (i, p ,phi, c_a, c_m, g_a, alpha, beta,"Normal");
             nodes[i] = normal;
         }
-
-
+        /*
         Random rand = new Random();
 		
 		for (int i = 0; i < nodes.length; i++) {
@@ -113,12 +151,30 @@ public class Game {
 			Node temp = nodes[randomIndexToSwap];
 			nodes[randomIndexToSwap] = nodes[i];
 			nodes[i] = temp;
-		}
+		}*/
 
        // System.out.println("Number malicious:"+number_malicious);
        // System.out.println("Number IDN:"+number_IDN);
 
         return nodes;
+    }
+
+    public void setup_neighbours(){
+        Random rand = new Random();
+        for(int i = 0; i < nodes.length; i++){
+            int [] neighbours = new int [0];
+            for(int j = 0; j < nodes[i].neighbours.length; j++){
+                boolean added = false;
+                while(!added){
+                    int neighbour = rand.nextInt(nodes.length);
+                    if(neighbour != nodes[i].id & !id_exists_int(neighbour, neighbours)){
+                        neighbours = add_node_ids(neighbours, neighbour);
+                        added = true;
+                    }
+                }
+            }
+            nodes[i].neighbours = neighbours;
+        }
     }
 
     public void setup_parameters(double [] params){
@@ -132,6 +188,56 @@ public class Game {
 
         Random rand = new Random();
 
+        for(int i = 0; i < plays_per_turn; i++){
+            boolean added = false;
+            while(!added){
+                int int_random= rand.nextInt(nodes_number);
+                Node selected_node = nodes[int_random];
+                if(!selected_node.detected & !selected_node.ran_out_of_power & has_valid_neighbours(selected_node.id)){
+                    sender_nodes = add_node(sender_nodes, selected_node);
+                    selected_node.play("Sender");
+                    added = true;
+                }
+            }
+            boolean added2 = false;
+            while(!added2){
+                int int_random = rand.nextInt(sender_nodes[i].neighbours.length);
+                Node selected_node = nodes[sender_nodes[i].neighbours[int_random]];
+                if(!selected_node.type.equals("Malicious") &  !selected_node.ran_out_of_power){
+                    receiver_nodes = add_node(receiver_nodes, selected_node);
+                    selected_node.play("Receiver");
+                    added2 = true;
+                }
+            }
+            
+            if(sender_nodes[i].type.equals("Malicious")){
+                if(sender_nodes[i].current_action.equals("Attack")){
+                    if(receiver_nodes[i].current_action.equals("Monitor")){
+                        double double_random= rand.nextDouble();
+                        if(double_random <= alpha){
+                            sender_nodes[i].detected = true;
+                        }
+                    }
+                }if(sender_nodes[i].current_action.equals("Not")){
+                    if(receiver_nodes[i].current_action.equals("Monitor")){
+                        double double_random= rand.nextDouble();
+                        if(double_random <= beta){
+                            sender_nodes[i].detected = true;
+                        }
+                    }
+                }
+            }else{
+                if(receiver_nodes[i].current_action.equals("Monitor")){
+                    double double_random= rand.nextDouble();
+                    if(double_random <= beta){
+                        sender_nodes[i].detected = true;
+                    }
+                }
+            }
+
+        }
+
+        /*
         for(int i = 0; i < plays_per_turn; i++){
             boolean added = false;
             while(!added){
@@ -156,8 +262,8 @@ public class Game {
                     added = true;
                 }
             }
-        }
-
+        }*/
+        /*
         for(int i = 0; i < plays_per_turn; i++){
             //String action_sender = sender_nodes[i].current_action;
             //String action_receiver = receiver_nodes[i].current_action;
@@ -186,7 +292,7 @@ public class Game {
                     }
                 }
             }
-        }
+        }*/
 
     }
 
@@ -201,11 +307,34 @@ public class Game {
         return result;
     }
 
+    public int [] add_node_ids (int [] table, int id){
+        int [] result = new int [table.length+1];
+
+        for(int i = 0; i < table.length; i++){
+            result[i] = table[i];
+        }
+        result[table.length] = id;
+
+        return result;
+    }
+
     public boolean id_exists(int id, Node [] nodes){
         boolean exists = false;
 
         for(int i = 0; i < nodes.length; i++){
             if(nodes[i].id == id){
+                exists = true;
+            }
+        }
+
+        return exists;
+    }
+
+    public boolean id_exists_int(int id, int [] nodes){
+        boolean exists = false;
+
+        for(int i = 0; i < nodes.length; i++){
+            if(nodes[i] == id){
                 exists = true;
             }
         }
@@ -226,7 +355,7 @@ public class Game {
         System.out.println("Percentage of malicious nodes detected: "+(number_detected)/(phi*nodes_number));
         */
         List<String[]> stats = new ArrayList<>();
-        //stats.add(new String[] {"Turns","Number of detected malicious nodes", "Number of false detections"});
+        stats.add(new String[] {"Turns","Number of detected malicious nodes", "Number of false detections"});
         for(int i = 0; i < max_turns; i++){
             double percentage_nodes_detected;
             //double number_nodes_false_detected = 0;
@@ -250,12 +379,12 @@ public class Game {
             stats.add(new String[] {String.valueOf(i+1), String.valueOf((int)number_detected), String.valueOf((int)number_false_detected), String.valueOf((int) total_monitoring_costs) }); 
         }
 
-       /* try {
+        try {
             givenDataArray_whenConvertToCSV_thenOutputCreated(stats);
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
-        }*/
+        }
 
         return stats;
     }
